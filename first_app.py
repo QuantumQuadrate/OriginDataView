@@ -43,7 +43,7 @@ if start_button:
         sub_sock.close()
     except:
         pass
-    sub_sock = create_socket_sub(session_id)
+    sub_sock = reciever.create_socket_sub(session_id)
     for stream in checked_streams:
         sub_sock.setsockopt_string(zmq.SUBSCRIBE, get_stream_filter(stream_dict,stream))
     st.write(checked_streams)
