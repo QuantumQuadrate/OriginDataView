@@ -77,9 +77,9 @@ while sub_boolean:
                 #remove the first element
                 DATA[streamID].drop(DATA[streamID].head(1).index,inplace=True)
         for key in DATA:
-            chart = alt.Chart(DATA[key]).mark_line(point=True).encode(
-                x='measurement_time',
-                y='value',
+            chart = alt.Chart(DATA[key]).mark_line().encode(
+                alt.X('measurement_time'),
+                alt.Y('value',scale=alt.Scale(zero=False)),
                 color=alt.condition(brush, 'variable', alt.value('lightgray'))
             ).configure_view(
                 continuousHeight=600,
