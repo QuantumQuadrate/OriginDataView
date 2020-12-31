@@ -9,8 +9,11 @@ numpy = "*"
 pandas = "*"
 matplotlib = "*"
 zmq = "*"
+configparser = "*"
+loguru = "*"
 
 [dev-packages]
+pylint = "*"
 
 [requires]
 python_version = "3.8"
