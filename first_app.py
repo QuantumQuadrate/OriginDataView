@@ -9,7 +9,6 @@ import time
 import pandas as pd
 from loguru import logger
 
-import configparser
 import zmq
 import json
 import GetData as reciever
@@ -18,53 +17,11 @@ from streamlit.report_thread import get_report_ctx
 ctx = get_report_ctx()
 session_id = ctx.session_id
 
-@st.cache(hash_funcs={zmq.sugar.socket.Socket: id})
-def create_socket_sub(session_id):
-    config = configparser.ConfigParser(inline_comment_prefixes = ';')
-    config.read("origin-server.cfg")
-    ip = config.get('Server','ip')
-    sub_port = config.getint('Server', 'pub_port')
-
-    context = zmq.Context()
-    sub_sock = context.socket(zmq.SUB)
-    sub_sock.connect("tcp://{}:{}".format(ip,sub_port))
-    logger.debug("Connected to sub socket id: {}".format(id(sub_sock)))
-    return sub_sock
-    
-@st.cache(hash_funcs={zmq.sugar.socket.Socket: id})
-def create_socket_read():
-    config = configparser.ConfigParser(inline_comment_prefixes = ';')
-    config.read("origin-server.cfg")
-    ip = config.get('Server','ip')
-    read_port = config.getint('Server','read_port')
-
-    context = zmq.Context()
-    read_sock = context.socket(zmq.REQ)
-    read_sock.connect("tcp://{}:{}".format(ip,read_port))
-    logger.debug("Connected to read socket")
-    return read_sock
-
-@st.cache(hash_funcs={zmq.sugar.socket.Socket: id})
-def get_available_streams(read_sock):
-    """!@brief Request the knownStreams object from the server.
-    @return knownStreams
-    """
-    # Sending an empty JSON object requests an object containing the
-    # available streams
-    logger.debug("read sock id: {}".format(id(read_sock)))
-    
-    read_sock.send_string('{}')
-    try:
-        err, known_streams = json.loads(read_sock.recv())
-    except:
-        logger.error("Error connecting to data server")
-        st.write("Error connecting to data server")
-    return known_streams
 
 #set up the site
 #get all of the streams we can subscribe to
-read_sock = create_socket_read()
-stream_dict = get_available_streams(read_sock)["streams"]
+read_sock = reciever.create_socket_read()
+stream_dict = reciever.get_available_streams(read_sock)["streams"]
 known_streams = list(stream_dict.keys())
 check_boxes = [st.sidebar.checkbox(stream, key=stream) for stream in known_streams]
 checked_streams = [stream for stream,checked in zip(known_streams,check_boxes) if checked]
