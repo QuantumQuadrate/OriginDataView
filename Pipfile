@@ -11,6 +11,8 @@ matplotlib = "*"
 zmq = "*"
 configparser = "*"
 loguru = "*"
+plotly = "*"
+altair = "*"
 
 [dev-packages]
 pylint = "*"

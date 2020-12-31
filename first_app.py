@@ -14,6 +14,9 @@ import json
 import GetData as reciever
 from streamlit.report_thread import get_report_ctx
 
+import plotly.graph_objects as go
+import altair as alt
+
 ctx = get_report_ctx()
 session_id = ctx.session_id
 
@@ -35,7 +38,7 @@ def get_stream_filter(stream_dict,stream,length = 4):
 #here is where we will start the sub port and read
 
 start_button = st.button("Start Subscribing")
-graph = st.empty()
+graphs = {}
 stop_button = st.button("Stop Subscribing")
     
 if start_button:
@@ -45,7 +48,9 @@ if start_button:
         pass
     sub_sock = reciever.create_socket_sub(session_id)
     for stream in checked_streams:
-        sub_sock.setsockopt_string(zmq.SUBSCRIBE, get_stream_filter(stream_dict,stream))
+        streamID = get_stream_filter(stream_dict,stream)
+        sub_sock.setsockopt_string(zmq.SUBSCRIBE, streamID)
+        graphs[streamID] = st.empty()
     st.write(checked_streams)
     sub_boolean = True
     st.write("Started Subscribing")
@@ -53,25 +58,37 @@ if start_button:
 #loop to get the data from subscriber and graph it 
 count = 0
 DATA = {}
+brush = alt.selection_interval()
 while sub_boolean:
     try:
         [streamID, content] = sub_sock.recv_multipart()
+        streamID = streamID.decode('ascii','strict')
         content =json.loads(content.decode('ascii','strict'))
-        dat = {key:content[key] for key in content if key != "measurement_time"}
-        content = pd.DataFrame(dat, index=[content["measurement_time"]])
+        content = {key : [content[key]] for key in content}
+        content = pd.DataFrame(content).melt('measurement_time')
 
         if streamID not in DATA:
             #add the data
             DATA[streamID] = content
         else:
             #append the data
-            DATA[streamID] = DATA[streamID].append(content)
+            DATA[streamID] = DATA[streamID].append(content,ignore_index=True)
             if DATA[streamID].size > 1000:
                 #remove the first element
                 DATA[streamID].drop(DATA[streamID].head(1).index,inplace=True)
-        count = count + 1
         for key in DATA:
-            graph.line_chart(DATA[key])
+            chart = alt.Chart(DATA[key]).mark_line(point=True).encode(
+                x='measurement_time',
+                y='value',
+                color=alt.condition(brush, 'variable', alt.value('lightgray'))
+            ).configure_view(
+                continuousHeight=600,
+                 continuousWidth=600,
+            ).add_selection(
+                brush
+            )
+
+            graphs[key].altair_chart(chart)
         time.sleep(.01)
     except zmq.ZMQError as e:
         logger.debug(e)
