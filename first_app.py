@@ -69,10 +69,14 @@ while sub_boolean:
 
         if streamID not in DATA:
             #add the data
-            DATA[streamID] = content
+            DATA[streamID] = content.sort_values(
+                by="value"
+            )
         else:
             #append the data
-            DATA[streamID] = DATA[streamID].append(content,ignore_index=True)
+            DATA[streamID] = DATA[streamID].append(content,ignore_index=True).sort_values(
+                by="value"
+            )
             if DATA[streamID].size > 1000:
                 #remove the first element
                 DATA[streamID].drop(DATA[streamID].head(1).index,inplace=True)
