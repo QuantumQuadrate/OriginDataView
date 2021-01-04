@@ -5,8 +5,7 @@ from loguru import logger
 import configparser
 
 
-@st.cache(hash_funcs={zmq.sugar.socket.Socket: id})
-def create_socket_sub(session_id):
+def create_socket_sub():
     config = configparser.ConfigParser(inline_comment_prefixes = ';')
     config.read("origin-server.cfg")
     ip = config.get('Server','ip')
@@ -19,7 +18,7 @@ def create_socket_sub(session_id):
     return sub_sock
     
 @st.cache(hash_funcs={zmq.sugar.socket.Socket: id})
-def create_socket_read():
+def create_socket_read(session_id):
     config = configparser.ConfigParser(inline_comment_prefixes = ';')
     config.read("origin-server.cfg")
     ip = config.get('Server','ip')
@@ -31,7 +30,7 @@ def create_socket_read():
     logger.debug("Connected to read socket")
     return read_sock
 
-@st.cache(hash_funcs={zmq.sugar.socket.Socket: id})
+@st.cache(ttl=10*60,hash_funcs={zmq.sugar.socket.Socket: id},show_spinner=False)
 def get_available_streams(read_sock):
     """!@brief Request the knownStreams object from the server.
     @return knownStreams
@@ -50,5 +49,6 @@ def get_available_streams(read_sock):
 
 
 
+@st.cache(ttl=10*60,hash_funcs={zmq.sugar.socket.Socket: id},show_spinner=False)
 def get_data(read_sock, stream,config, timeout = 300):
     pass
