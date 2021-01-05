@@ -37,17 +37,44 @@ data_expander = st.beta_expander(label="read data")
 sub_boolean = False
 read_sock = reciever.create_socket_read(session_id)
 stream_dict = reciever.get_available_streams(read_sock)["streams"]
-
 known_streams = list(stream_dict.keys())
 check_boxes = [stream_selection.checkbox(stream, key=stream) for stream in known_streams]
 checked_streams = [stream for stream,checked in zip(known_streams,check_boxes) if checked]
 
 with data_expander:
     day = st.date_input(label="Select the day to get the data for, if today, it will get the last 24hrs")
-
+        
+        
     if st.button("get data"):
+        diff = abs(datetime.date.today()-day)
+        timeout = datetime.timedelta(hours=1)
+        date_data = pd.DataFrame()
         #get the data and graph it
-        pass
+        if int(diff.total_seconds()) == 0:
+            start = time.time()
+            #get the last 24 hours
+            for stream in checked_streams:
+                for i in range(24):
+                    date_data = date_data.append(
+                        reciever.get_data(
+                            read_sock,stream,start,timeout=timeout,raw=False
+                            ),ignore_index=True
+                        )
+                    start = start-timeout.total_seconds()
+                date_data = date_data.dropna()
+                plot_data = pd.DataFrame()
+                for definition in stream_dict[stream]["definition"]:
+                    st.write(definition)
+                    plot_data[definition] = date_data[definition].apply(pd.Series).average
+                
+                plot_data['measurement_time'] = date_data['measurement_time'].apply(pd.Series).start/(2**32)
+                plot_data['measurement_time'] = pd.to_datetime(plot_data['measurement_time'],unit="s")
+                plot_data = plot_data.melt('measurement_time')
+                fig = px.line(plot_data,x='measurement_time',y='value',color='variable')
+                st.plotly_chart(fig)
+
+
+                    
 
 
 @st.cache(ttl=60*10,show_spinner=False)
@@ -72,11 +99,14 @@ with live_graph_container:
         max_value=datetime.time(hour=1),
         format="H:mm:ss"
         )
+#this will init the subscribe loop
+#and get the data
 if start_button:
     try:
         sub_sock.close()
     except:
         pass
+    #sub port
     sub_sock = reciever.create_socket_sub()
     window_size = {}
     DATA = {}
@@ -84,16 +114,16 @@ if start_button:
         streamID = get_stream_filter(stream_dict,stream)
         DATA[streamID] = reciever.get_data(read_sock,stream,start=time.time(),
             timeout=time_slider)
+        DATA[streamID].sort_values(by=['measurement_time','variable'],inplace=True)
         sub_sock.setsockopt_string(zmq.SUBSCRIBE, streamID)
-        window_size[streamID] = DATA[streamID].size
+        window_size[streamID] = DATA[streamID].shape
         #initiate graphs
         with live_graph_container:
             graphs[streamID] = st.empty()
+
     sub_boolean = True
 
 #loop to get the data from subscriber and graph it 
-count = 0
-debug_write = st.empty()
 
 while sub_boolean:
     #get some data before graphing
@@ -117,9 +147,21 @@ while sub_boolean:
         content = pd.DataFrame(content).melt('measurement_time')
 
         #append the data
-        DATA[streamID] = DATA[streamID].append(content,ignore_index=True).sort_values(
-            by=['variable','measurement_time',]
-        )
+        DATA[streamID] = DATA[streamID].append(content,ignore_index=True)
+
+    #get rid of old times
+    for streamID in DATA:
+        #get how much it changed by
+        row0,col0 = window_size[streamID]
+        row1,col1 = DATA[streamID].shape
+        diff = row1-row0
+        DATA[streamID].sort_values(by='measurement_time',inplace=True)
+        #remove that amount from the oldest measurement times
+        if diff > 0:
+            DATA[streamID].drop(DATA[streamID].loc[0:int(diff)-1].index,inplace=True)
+        #resort by variable and time
+        DATA[streamID].sort_values(by=['measurement_time','variable'],inplace=True)
+
     #plot the new data
     for key in DATA:
         fig = px.line(DATA[key],x='measurement_time',y='value',color='variable')

@@ -56,7 +56,7 @@ def get_available_streams(read_sock):
 @st.cache(ttl=10*60,hash_funcs={zmq.sugar.socket.Socket: id},show_spinner=False)
 def get_data(read_sock, stream,start=None, timeout = datetime.timedelta(seconds=600),raw=True):
     #first convert the datetime object to just seconds
-    if type(timeout) is not datetime.timedelta():
+    if not isinstance(timeout,datetime.timedelta):
         timeout = datetime.timedelta(hours=timeout.hour,
             minutes=timeout.minute,seconds=timeout.second) 
     if start is None:
@@ -85,6 +85,8 @@ def get_data(read_sock, stream,start=None, timeout = datetime.timedelta(seconds=
             logger.info('Updating stream definitions from server.')
         return {}
     else:
+        if raw == False:
+            return data[1]
         data[1]['measurement_time'] = pd.to_datetime(np.array(data[1]['measurement_time'])/(2**32),unit="s")
 
         return pd.DataFrame(data[1]).melt('measurement_time')
