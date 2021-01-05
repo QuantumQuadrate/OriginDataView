@@ -3,6 +3,10 @@ import json
 import streamlit as st
 from loguru import logger
 import configparser
+import datetime
+import time
+import numpy as np
+import pandas as pd
 
 
 def create_socket_sub():
@@ -50,5 +54,41 @@ def get_available_streams(read_sock):
 
 
 @st.cache(ttl=10*60,hash_funcs={zmq.sugar.socket.Socket: id},show_spinner=False)
-def get_data(read_sock, stream,config, timeout = 300):
-    pass
+def get_data(read_sock, stream,start=None, timeout = datetime.timedelta(seconds=600),raw=True):
+    #first convert the datetime object to just seconds
+    if type(timeout) is not datetime.timedelta():
+        timeout = datetime.timedelta(hours=timeout.hour,
+            minutes=timeout.minute,seconds=timeout.second) 
+    if start is None:
+        start = time.time()
+    stop = start - timeout.total_seconds()
+    request = {
+            'stream': stream.strip(),
+            'start': start,
+            'stop': stop,
+            'raw': raw,
+        }
+    read_sock.send_string(json.dumps(request))
+    try:
+            msg = read_sock.recv()
+            data = json.loads(msg)
+    except:
+        msg = "There was an error communicating with the server"
+        logger.error(msg)
+        data = (1, {'error': msg, 'stream': {}})
+    
+    if data[0] != 0:
+        msg = "The server responds to the request with error message: `{}`"
+        logger.error(msg.format(data[1]["error"]))
+        known_streams = data[1]['stream']
+        if known_streams != {}:
+            logger.info('Updating stream definitions from server.')
+        return {}
+    else:
+        data[1]['measurement_time'] = pd.to_datetime(np.array(data[1]['measurement_time'])/(2**32),unit="s")
+
+        return pd.DataFrame(data[1]).melt('measurement_time')
+
+
+
+    

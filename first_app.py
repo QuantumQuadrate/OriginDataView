@@ -77,17 +77,20 @@ if start_button:
     except:
         pass
     sub_sock = reciever.create_socket_sub()
+    window_size = {}
+    DATA = {}
     for stream in checked_streams:
         streamID = get_stream_filter(stream_dict,stream)
+        DATA[streamID] = reciever.get_data(read_sock,stream,start=time.time(),
+            timeout=time_slider)
         sub_sock.setsockopt_string(zmq.SUBSCRIBE, streamID)
         graphs[streamID] = st.empty()
+        window_size[streamID] = DATA[streamID].size
     sub_boolean = True
 
 #loop to get the data from subscriber and graph it 
 count = 0
-DATA = {}
 debug_write = st.empty()
-window_size = {}
 while sub_boolean:
     
     try:
@@ -100,17 +103,14 @@ while sub_boolean:
 
         if streamID not in DATA:
             #add the data
-            DATA[streamID] = content.sort_values(
-                by=['variable','measurement_time']
-            )
-            window_size[streamID] = DATA[streamID].size
+            pass
         else:
             #append the data
             DATA[streamID] = DATA[streamID].append(content,ignore_index=True).sort_values(
                 by=['variable','measurement_time',]
             )
 
-            if DATA[streamID].size > 1000:
+            if DATA[streamID].size > window_size[streamID]:
                 #remove the oldest elements
                 oldest_time = DATA[streamID].at[0,'measurement_time']
                 DATA[streamID] = DATA[streamID][DATA[streamID].measurement_time != oldest_time] 
