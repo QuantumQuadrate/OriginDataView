@@ -12,7 +12,7 @@ import datetime
 
 import zmq
 import json
-import GetData as reciever
+import get_data as reciever
 from streamlit.report_thread import get_report_ctx
 
 import plotly.graph_objects as go
@@ -29,6 +29,7 @@ readme_expander.write("""Every interaction with a widget will rerun the whole sc
 stop the subscription execution.
 Just click the start subscribing button to resubscribe""")
 data_expander = st.beta_expander(label="read data")
+
 
 
 #set up the site
@@ -55,22 +56,22 @@ def get_stream_filter(stream_dict,stream,length = 4):
     return stream_id
 #here is where we will start the sub port and read
 
-col1,col2 = st.beta_columns(2)    
-with col1:
-    start_button = st.button("Start Subscribing")
-graphs = {}
-with col2:
-    stop_button = st.button("Stop Subscribing")
 
-time_slider = st.slider(label="Select a time range for the live graph to display",
-    min_value = datetime.time(hour=0,minute=0,second=10),
-    value =datetime.time(hour=0,minute=10,second=0),
-    step = datetime.timedelta(seconds=1),
-    max_value=datetime.time(hour=1),
-    format="H:mm:ss"
-
-    )
-
+live_graph_container = st.beta_expander(label="Live Graphing",expanded=True)
+with live_graph_container:
+    col1,col2 = st.beta_columns(2)    
+    with col1:
+        start_button = st.button("Start Subscribing")
+    graphs = {}
+    with col2:
+        stop_button = st.button("Stop Subscribing")
+    time_slider = st.slider(label="Select a time range for the live graph to display",
+        min_value = datetime.time(hour=0,minute=0,second=10),
+        value =datetime.time(hour=0,minute=4,second=0),
+        step = datetime.timedelta(seconds=1),
+        max_value=datetime.time(hour=1),
+        format="H:mm:ss"
+        )
 if start_button:
     try:
         sub_sock.close()
@@ -84,49 +85,47 @@ if start_button:
         DATA[streamID] = reciever.get_data(read_sock,stream,start=time.time(),
             timeout=time_slider)
         sub_sock.setsockopt_string(zmq.SUBSCRIBE, streamID)
-        graphs[streamID] = st.empty()
         window_size[streamID] = DATA[streamID].size
+        #initiate graphs
+        with live_graph_container:
+            graphs[streamID] = st.empty()
     sub_boolean = True
 
 #loop to get the data from subscriber and graph it 
 count = 0
 debug_write = st.empty()
+
 while sub_boolean:
-    
-    try:
-        [streamID, content] = sub_sock.recv_multipart()
+    #get some data before graphing
+    for i in range(3*len(DATA.keys())):
+
+        try:
+            [streamID, content] = sub_sock.recv_multipart()
+        except zmq.ZMQError as e:
+            logger.debug(e)
+            #all of the proper shutdown calls
+            sub_sock.close()
+            st.write("Connection error, closing subscription")
+            logger.error("Connection error, closing subscription")
+            sub_boolean = False
+
+
         streamID = streamID.decode('ascii','strict')
         content =json.loads(content.decode('ascii','strict'))
         content['measurement_time'] = pd.to_datetime(content['measurement_time']/(2**32),unit="s")
         content = {key : [content[key]] for key in content}
         content = pd.DataFrame(content).melt('measurement_time')
 
-        if streamID not in DATA:
-            #add the data
-            pass
-        else:
-            #append the data
-            DATA[streamID] = DATA[streamID].append(content,ignore_index=True).sort_values(
-                by=['variable','measurement_time',]
-            )
-
-            if DATA[streamID].size > window_size[streamID]:
-                #remove the oldest elements
-                oldest_time = DATA[streamID].at[0,'measurement_time']
-                DATA[streamID] = DATA[streamID][DATA[streamID].measurement_time != oldest_time] 
-        for key in DATA:
-            fig = px.line(DATA[key],x='measurement_time',y='value',color='variable')
-            fig.update_layout(uirevision='true')
+        #append the data
+        DATA[streamID] = DATA[streamID].append(content,ignore_index=True).sort_values(
+            by=['variable','measurement_time',]
+        )
+    #plot the new data
+    for key in DATA:
+        fig = px.line(DATA[key],x='measurement_time',y='value',color='variable')
+        fig.update_layout(uirevision='true')
+        with live_graph_container:
             graphs[key].plotly_chart(fig,use_container_width =True)
-    except KeyError as e:
-        st.write("error with subscribing object, try refreshing page to fix")
-    except zmq.ZMQError as e:
-        logger.debug(e)
-        #all of the proper shutdown calls
-        sub_sock.close()
-        st.write("Connection error, closing subscription")
-        logger.error("Connection error, closing subscription")
-        sub_boolean = False
     
     if stop_button:
         sub_sock.close()
