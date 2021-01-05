@@ -62,15 +62,19 @@ with data_expander:
                         )
                     start = start-timeout.total_seconds()
                 date_data = date_data.dropna()
-                plot_data = pd.DataFrame()
+                x_dat = date_data['measurement_time'].apply(pd.Series).start
+                fig = go.Figure()
                 for definition in stream_dict[stream]["definition"]:
-                    st.write(definition)
-                    plot_data[definition] = date_data[definition].apply(pd.Series).average
-                
-                plot_data['measurement_time'] = date_data['measurement_time'].apply(pd.Series).start/(2**32)
-                plot_data['measurement_time'] = pd.to_datetime(plot_data['measurement_time'],unit="s")
-                plot_data = plot_data.melt('measurement_time')
-                fig = px.line(plot_data,x='measurement_time',y='value',color='variable')
+                    y_dat = date_data[definition].apply(pd.Series).average
+                    y_error = date_data[definition].apply(pd.Series).standard_deviation.tolist()
+                    fig.add_trace(go.Scatter(
+                        x=x_dat,
+                        y=y_dat,
+                        error_y=dict(
+                        type='data',
+                        array=y_error,),
+                        name=definition
+                    ))
                 st.plotly_chart(fig)
 
 
