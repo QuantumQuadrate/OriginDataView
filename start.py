@@ -86,7 +86,7 @@ with data_expander:
                         name=definition
                     ))
                 fig.update_layout(title=stream,xaxis_title='Measurement Time',yaxis_title='Value')
-                st.plotly_chart(fig)
+                st.plotly_chart(fig,use_container_width =True)
 
 
                     
