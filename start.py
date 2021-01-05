@@ -27,7 +27,13 @@ stream_selection = st.sidebar
 readme_expander = st.beta_expander(label="readme")
 readme_expander.write("""Every interaction with a widget will rerun the whole script and 
 stop the subscription execution.
-Just click the start subscribing button to resubscribe""")
+Just click the start subscribing button to resubscribe.
+
+You can click the plot legends to select which data is plotted.
+
+The date range picker only works for the current day, for now
+
+When in doubt, refresh page""")
 data_expander = st.beta_expander(label="read data")
 
 
@@ -48,12 +54,12 @@ with data_expander:
     if st.button("get data"):
         diff = abs(datetime.date.today()-day)
         timeout = datetime.timedelta(hours=1)
-        date_data = pd.DataFrame()
         #get the data and graph it
         if int(diff.total_seconds()) == 0:
             start = time.time()
             #get the last 24 hours
             for stream in checked_streams:
+                date_data = pd.DataFrame()
                 for i in range(24):
                     date_data = date_data.append(
                         reciever.get_data(
@@ -62,7 +68,8 @@ with data_expander:
                         )
                     start = start-timeout.total_seconds()
                 date_data = date_data.dropna()
-                x_dat = date_data['measurement_time'].apply(pd.Series).start
+                x_dat = date_data['measurement_time'].apply(pd.Series).start/2**32
+                x_dat = pd.to_datetime(x_dat,unit="s")
                 fig = go.Figure()
                 for definition in stream_dict[stream]["definition"]:
                     y_dat = date_data[definition].apply(pd.Series).average
@@ -75,6 +82,7 @@ with data_expander:
                         array=y_error,),
                         name=definition
                     ))
+                fig.update_layout(title=stream,xaxis_title='Measurement Time',yaxis_title='Value')
                 st.plotly_chart(fig)
 
 
@@ -169,7 +177,8 @@ while sub_boolean:
     #plot the new data
     for key in DATA:
         fig = px.line(DATA[key],x='measurement_time',y='value',color='variable')
-        fig.update_layout(uirevision='true')
+        fig.update_layout(uirevision='true',title=key,xaxis_title='Measurement Time',
+            yaxis_title = 'Value')
         with live_graph_container:
             graphs[key].plotly_chart(fig,use_container_width =True)
     
