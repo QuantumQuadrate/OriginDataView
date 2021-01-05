@@ -24,7 +24,7 @@ session_id = ctx.session_id
 st.set_page_config(layout='wide')
 
 stream_selection = st.sidebar
-readme_expander = st.beta_expander(label="readme")
+readme_expander = st.beta_expander(label="README")
 readme_expander.write("""
 To start, select the Origin streams from the sidebar. This sidebar can be collapsed
 
@@ -163,19 +163,19 @@ while sub_boolean:
 
         #append the data
         DATA[streamID] = DATA[streamID].append(content,ignore_index=True)
-
     #get rid of old times
     for streamID in DATA:
-        #get how much it changed by
-        row0,col0 = window_size[streamID]
-        row1,col1 = DATA[streamID].shape
-        diff = row1-row0
-        DATA[streamID].sort_values(by='measurement_time',inplace=True)
-        #remove that amount from the oldest measurement times
-        if diff > 0:
-            DATA[streamID].drop(DATA[streamID].loc[0:int(diff)-1].index,inplace=True)
-        #resort by variable and time
-        DATA[streamID].sort_values(by=['measurement_time','variable'],inplace=True)
+        if not isinstance(DATA[streamID],dict):
+            #get how much it changed by
+            row0,col0 = window_size[streamID]
+            row1,col1 = DATA[streamID].shape
+            diff = row1-row0
+            DATA[streamID].sort_values(by='measurement_time',inplace=True)
+            #remove that amount from the oldest measurement times
+            if diff > 0:
+                DATA[streamID].drop(DATA[streamID].loc[0:int(diff)-1].index,inplace=True)
+            #resort by variable and time
+            DATA[streamID].sort_values(by=['measurement_time','variable'],inplace=True)
 
     #plot the new data
     for key in DATA:

@@ -80,9 +80,6 @@ def get_data(read_sock, stream,start=None, timeout = datetime.timedelta(seconds=
     if data[0] != 0:
         msg = "The server responds to the request with error message: `{}`"
         logger.error(msg.format(data[1]["error"]))
-        known_streams = data[1]['stream']
-        if known_streams != {}:
-            logger.info('Updating stream definitions from server.')
         return {}
     else:
         if raw == False:
