@@ -1,3 +1,6 @@
+This started from a divergent branch of the GraphingData repo. Unlike GraphingData, this needs the pyarrow module, which fails to install nicely on at least Windows 10 LTSB and Windows 7 Pro. If you have issues too, try using GraphingData instead. Supposedly there are new features and bugfixes in OriginDataView, but the original author (Bradley Nordin) did not enumerate them here and I have not personally sifted through the code as of yet. - PH
+
+
 # StreamlitUI
 Origin Graphing UI written with Streamlit
 
